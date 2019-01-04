@@ -1,8 +1,8 @@
-organization := "co.adhoclabs"
+organization := "info.ksilin"
 
 name := "akka-http-contrib"
 
-version := "0.0.7-SNAPSHOT"
+version := "0.0.7"
 
 scalaVersion := "2.12.8"
 
@@ -41,6 +41,15 @@ libraryDependencies ++= {
     "org.scalamock" %% "scalamock" % scalaMockV % "test"
   )
 }
+
+resolvers += Resolver.jcenterRepo
+licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0"))
+scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/ksilin/akka-http-contrib"),
+    "scm:git@github.com:ksilin/akka-http-contrib.git"
+  )
+)
 
 lazy val scalafmtSettings =
   Seq(

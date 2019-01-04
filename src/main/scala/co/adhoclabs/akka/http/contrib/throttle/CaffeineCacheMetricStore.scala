@@ -6,12 +6,14 @@ import com.typesafe.scalalogging.StrictLogging
 import scalacache._
 import scalacache.caffeine._
 
-import scala.concurrent.Future
+import scala.concurrent.{ ExecutionContext, Future }
 
-class CaffeineCacheMetricStore(namespace: String = "") extends MetricStore with StrictLogging {
+class CaffeineCacheMetricStore(namespace: String = "")(implicit ec: ExecutionContext)
+    extends MetricStore
+    with StrictLogging {
 
-  import concurrent.ExecutionContext.Implicits.global
   import scalacache.modes.scalaFuture._
+
   val cache = CaffeineCache[Long]
 
   override def keyForEndpoint(throttleEndpoint: ThrottleEndpoint, url: String): String =
@@ -43,18 +45,13 @@ class CaffeineCacheMetricStore(namespace: String = "") extends MetricStore with 
 
     val expires =
       Instant.now().plusMillis(throttleDetails.window.toMillis)
-    val v = cache.underlying.get(key, {
+    val entry = cache.underlying.get(key, {
       case k: String =>
         Entry[Long](0, Some(expires))
     })
+    val count = entry.value
 
-    val count = v.value
-
-    logger.debug(s"key $key; $v")
-//    if(count >= throttleDetails.allowedCalls){
-//      logger.debug(s"exceeded throttle limit, resetting count")
-//      cache.doPut(key, 1, Some(expires))
-//    } else {
+    logger.debug(s"key $key: $entry")
     val newCount = count + 1
     logger.debug(s"increasing count for $key to $newCount")
     cache.doPut(key, newCount, None).flatMap(_ => Future.unit)
