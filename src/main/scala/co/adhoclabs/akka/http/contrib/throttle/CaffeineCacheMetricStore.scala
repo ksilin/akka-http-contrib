@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalacache._
 import scalacache.caffeine._
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Future }
 
 class CaffeineCacheMetricStore(namespace: String = "")(implicit ec: ExecutionContext)
@@ -46,7 +47,7 @@ class CaffeineCacheMetricStore(namespace: String = "")(implicit ec: ExecutionCon
     val expires =
       Instant.now().plusMillis(throttleDetails.window.toMillis)
     val entry = cache.underlying.get(key, {
-      case k: String =>
+      case _: String =>
         Entry[Long](0, Some(expires))
     })
     val count = entry.value
@@ -54,7 +55,8 @@ class CaffeineCacheMetricStore(namespace: String = "")(implicit ec: ExecutionCon
     logger.debug(s"key $key: $entry")
     val newCount = count + 1
     logger.debug(s"increasing count for $key to $newCount")
-    cache.doPut(key, newCount, None).flatMap(_ => Future.unit)
+    val ttl = throttleEndpoint.throttleDetails.window
+    cache.doPut(key, newCount, Some(ttl)).flatMap(_ => Future.unit)
 //    }
 
 //    throttleDetails.throttlePeriod

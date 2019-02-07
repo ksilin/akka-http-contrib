@@ -14,14 +14,17 @@ trait MetricThrottleSettings extends ThrottleSettings with StrictLogging {
       request: HttpRequest,
       left: => Future[T]
   )(right: (ThrottleEndpoint) ⇒ Future[T]): Future[T] =
+    findEndpoint(request)
+      .flatMap(_.fold(left)(right))
+
+  private def findEndpoint[T](request: HttpRequest) = {
     Future
       .sequence(endpoints.map(te ⇒ te.endpoint.matches(request).map(m ⇒ if (m) Some(te) else None)))
       .map(_.flatten.headOption)
-      .flatMap(_.fold(left)(right))
-
+  }
   override def shouldThrottle(request: HttpRequest): Future[Boolean] = {
     findAndRun(request, {
-      logger.debug(s"not checking cache for $request")
+      logger.debug(s"no matching throttling endpoint found for $request")
       Future(false)
     }) { te ⇒
       logger.info(s"checking cache for $request")
@@ -37,7 +40,7 @@ trait MetricThrottleSettings extends ThrottleSettings with StrictLogging {
   }
 
   override def onExecute(request: HttpRequest): Future[Unit] =
-    findAndRun(request, Future(())) { te ⇒
+    findAndRun(request, Future(())) { te: ThrottleEndpoint ⇒
       store.incr(te, request.uri.path.toString())
     }
 }
